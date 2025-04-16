@@ -4,6 +4,7 @@ from ws_freshportal.subastas.main import main_subastas
 from ws_freshportal.ventas.main import main_ventas
 from ws_unosof.dae.main import dae_main
 from ws_unosof.clientes.main import main_cst
+from ws_unosof.reportes_ventas.main import sales_main
 
 app = FastAPI (
     title='Web Scraping API',
@@ -62,6 +63,12 @@ def get_ventas_subastas_data():
     except HTTPException as http_ex:
         return { "error" : f"{http_ex.status_code}, {http_ex}" }
     
-    
+@app.get('/extraer-migrar-sales', description='Ruta para extraer la información de Reportes de Ventas Unosof')
+def get_ventas_subastas_data():
+    try:
+        sales_main()
+    except HTTPException as http_ex:
+        return { "error" : f"{http_ex.status_code}, {http_ex}" }
+
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=9999)

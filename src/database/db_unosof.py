@@ -57,3 +57,17 @@ def insert_data_cst(param):
 
 def delete_data_cst():
     return execute_query(2, delete_cst_data_query)
+
+# SALES
+url_sales_query = """SELECT prm_valor FROM Parametros_Sistema
+	            WHERE id_grupo = 9 AND prm_descripcion LIKE 'url_sales'"""
+
+# Sales Master Report SKU (Reports)
+# Open Maerkets
+# Standing Orders
+# Prebooks
+             
+# insert_cst_data_query
+
+def get_url_data_sales():
+    return execute_select_query(2, url_sales_query)

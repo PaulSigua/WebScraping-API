@@ -61,7 +61,6 @@ def execute_insert_query(db_id, query, params):
     except Exception as e:
         message = f'Error al ejecutar INSERT en {DB_CONFIG[db_id]["name"]}: {e}'
         print(message)
-        # log_to_db(db_id, 1, 'ERROR', message, 'execute_insert_query', 409)
         return None
     finally:
         if conn:
