@@ -62,6 +62,11 @@ def delete_data_cst():
 url_sales_query = """SELECT prm_valor FROM Parametros_Sistema
 	            WHERE id_grupo = 9 AND prm_descripcion LIKE 'url_sales'"""
 
+insert_report_sales_query = """INSERT INTO rptUnosof_Reportes_Ventas_Orden_Permanente VALUES (?,?,?,?,?,?,?,?,?,?)"""
+
+delete_report_sales_query = """DELETE FROM rptUnosof_Reportes_Ventas_Orden_Permanente
+            WHERE rvent_fecha_inicio_consulta >= ?"""
+
 # Sales Master Report SKU (Reports)
 # Open Maerkets
 # Standing Orders
@@ -71,3 +76,9 @@ url_sales_query = """SELECT prm_valor FROM Parametros_Sistema
 
 def get_url_data_sales():
     return execute_select_query(2, url_sales_query)
+
+def insert_data_sales(param):
+    return execute_insert_query(2, insert_report_sales_query, param)
+
+def delete_data_sales(param):
+    return execute_params_query(2, delete_report_sales_query, param)

@@ -9,8 +9,8 @@ def delete_old_records():
 def save(data):
     """Lee datos y los inserta en la base de datos evitando duplicados."""
     try:
-        if data:
-            delete_old_records()
+        # if data:
+        #     delete_old_records()
         
         for row in data:
             # Intentar convertir los valores de las columnas
@@ -41,7 +41,7 @@ def save(data):
                 continue
 
             # Insertar los datos en la base de datos
-            insert_data_dae(row)
+            # insert_data_dae(row)
             print(f'Insertando datos: {row}')
             
     except Exception as e:
