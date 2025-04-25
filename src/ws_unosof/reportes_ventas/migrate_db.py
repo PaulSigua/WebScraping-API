@@ -1,4 +1,4 @@
-from database.db_unosof import execute_query, insert_data_sales, delete_data_sales
+from database.db_unosof import execute_query, insert_data_sales, delete_data_sales, get_report_sales_query
 from datetime import datetime, timedelta
 
 def create_table():
@@ -13,8 +13,8 @@ def create_table():
             rvent_dolares_porcentaje DECIMAL(5,2),
             rvent_precio_medio DECIMAL(10,4),
             rvent_precio_medio_cm DECIMAL(10,4),
-            rvent_fecha_inicio DATE NOT NULL,
-            rvent_fecha_fin DATE NOT NULL,
+            rvent_fecha_inicio_consulta DATE NOT NULL,
+            rvent_fecha_fin_consulta DATE NOT NULL,
             rvent_nombre_reporte VARCHAR(100) NOT NULL
         );
     """
@@ -66,26 +66,57 @@ def save(data):
         for reporte in data:
             reporte_nombre = reporte["reporte"]
             filas = reporte["datos"]
+            account_rep_label = reporte["account_rep_label"]
+
             for row in filas:
                 # Aseguramos que tenga al menos 10 columnas (7 datos + 3 metadatos)
                 if len(row) < 10:
                     continue
 
-                values = [
-                    row[0],                              # sku_producto
-                    clean_int(row[1]),                   # tallos_vendidos
-                    clean_decimal(row[2]),                 # tallos_porcentaje
-                    clean_decimal(row[3]),                 # dolares_vendidos
-                    clean_decimal(row[4]),      # dolares_porcentaje
-                    clean_decimal(row[5]),                 # precio_medio
-                    clean_decimal(row[6]),                 # precio_medio_cm
-                    clean_date(row[7]),                  # fecha_inicio
-                    clean_date(row[8]),                  # fecha_fin
-                    row[9]                               # nombre_reporte
-                ]
+                # Validar si el registro ya existe en la base de datos
+                sku_producto = row[0]
+                fecha_inicio = clean_date(row[7])
+                fecha_fin = clean_date(row[8])
+                existing_record = get_report_sales_query(
+                    """
+                    SELECT rvent_nombre_cuenta_reporte
+                    FROM rptUnosof_Reportes_Ventas_Orden_Permanente
+                    WHERE rvent_sku_producto = ? AND rvent_fecha_inicio_consulta = ? AND rvent_fecha_fin_consulta = ?
+                    """,
+                    (sku_producto, fecha_inicio, fecha_fin)
+                )
 
-                print("Valores a insertar: ", values)
-                insert_data_sales(values)
+                if existing_record:
+                    # Si el registro existe, concatenar las etiquetas si no están ya presentes
+                    existing_labels = existing_record[0]["rvent_nombre_cuenta_reporte"]
+                    if account_rep_label not in existing_labels:
+                        updated_labels = f"{existing_labels} - {account_rep_label}"
+                        get_report_sales_query(
+                            """
+                            UPDATE rptUnosof_Reportes_Ventas_Orden_Permanente
+                            SET rvent_nombre_cuenta_reporte = ?
+                            WHERE rvent_sku_producto = ? AND rvent_fecha_inicio_consulta = ? AND rvent_fecha_fin_consulta = ?
+                            """,
+                            (updated_labels, sku_producto, fecha_inicio, fecha_fin)
+                        )
+                else:
+                    # Si el registro no existe, insertar un nuevo registro
+                    values = [
+                        sku_producto,                      # sku_producto
+                        clean_int(row[1]),                 # tallos_vendidos
+                        clean_decimal(row[2]),             # tallos_porcentaje
+                        clean_decimal(row[3]),             # dolares_vendidos
+                        clean_decimal(row[4]),             # dolares_porcentaje
+                        clean_decimal(row[5]),             # precio_medio
+                        clean_decimal(row[6]),             # precio_medio_cm
+                        fecha_inicio,                      # fecha_inicio
+                        fecha_fin,                         # fecha_fin
+                        reporte_nombre,                     # nombre_reporte
+                        f"{account_rep_label}"             # account_rep_label
+                    ]
+
+                    print("Insertando valores: ", values)
+                    insert_data_sales(values)
 
     except Exception as e:
-        print(f'ERROR: {e}')
+        print(f'ERROR al guardar los datos en la base de datos: {e}')

@@ -47,8 +47,8 @@ def get_db_connection(db_id: int):
     
     return conn
 
-# Función para ejecutar INSERT
 def execute_insert_query(db_id, query, params):
+    conn = None
     try:
         conn = get_db_connection(db_id)
         if conn is None:
@@ -67,6 +67,7 @@ def execute_insert_query(db_id, query, params):
             conn.close()
 
 def execute_select_query(db_id, query):
+    conn = None
     try:
         conn = get_db_connection(db_id)
         cursor = conn.cursor()
@@ -85,9 +86,9 @@ def execute_select_query(db_id, query):
             conn.close()
 
 def execute_params_query(db_id, query, param):
+    conn = None
     try:
         conn = get_db_connection(db_id)
-
         cursor = conn.cursor()
         cursor.execute(query, param)
         conn.commit()
@@ -100,9 +101,9 @@ def execute_params_query(db_id, query, param):
             conn.close()
             
 def execute_query(db_id, query):
+    conn = None
     try:
         conn = get_db_connection(db_id)
-
         cursor = conn.cursor()
         cursor.execute(query)
         conn.commit()
@@ -111,7 +112,7 @@ def execute_query(db_id, query):
         print(message)
         return None
     finally:
-        if conn:
+        if conn:  # Esto ahora es seguro porque 'conn' siempre está definida
             conn.close()
 
 # Función para registrar logs en la base de datos

@@ -13,6 +13,17 @@ import json
 import time
 from ws_unosof.reportes_ventas.migrate_db import save
 
+# Mapeo de índices de account_rep a sus etiquetas correspondientes
+ACCOUNT_REP_NAMES = {
+    1: "BMUNZON",
+    2: "DABAD",
+    3: "DMARTINEZ",
+    4: "FVRIES",
+    5: "MCRESPO",
+    6: "PBARRERA",
+    7: "TSONNABEND",
+}
+
 def login(driver):
     """Realiza el inicio de sesión en la plataforma."""
     try:
@@ -31,124 +42,91 @@ def scroll_down(driver):
     WebDriverWait(driver, 2).until(lambda d: d.execute_script("return document.readyState") == "complete")
     
 def extract_table_data(driver, fecha_inicio, fecha_fin, nombre_reporte):
-    """Extrae los datos de la tabla con BeautifulSoup, agregando fechas y nombre del reporte"""
+    """Extrae los datos de la tabla con BeautifulSoup, eliminando duplicados y validando filas."""
     scroll_down(driver)
     soup = BeautifulSoup(driver.page_source, "html.parser")
     table = soup.find(id='tblSalesMasterSKU')
     data = []
+    unique_rows = set()  # Para evitar duplicados
 
     if table:
         rows = table.find_all("tr")
         for row in rows:
             cells = row.find_all("td")
             row_data = [cell.text.strip() for cell in cells]
-            if row_data:
-                # Agregamos columnas adicionales al final de cada fila
+            if row_data and len(row_data) >= 7:  # Validar que la fila tenga al menos 7 columnas
+                # Agregar columnas adicionales al final de cada fila
                 row_data.extend([fecha_inicio, fecha_fin, nombre_reporte])
-                data.append(row_data)
+                row_identifier = tuple(row_data[:7])  # Usar las primeras 7 columnas como identificador único
+                if row_identifier not in unique_rows:
+                    unique_rows.add(row_identifier)
+                    data.append(row_data)
     return data
 
-def generate_report(driver, report_name, bo_sample_index, report_id_index=None, fecha_inicio=None, fecha_fin=None):
-    """Genera un reporte aplicando el filtro de fechas, basándose en los índices, y extrae los datos."""
-    print(f"Generando reporte: {report_name}")
 
-    # 1) Seleccionar el ID de reporte si corresponde
-    if report_id_index is not None:
-        Select(driver.find_element(By.ID, 'reportID1')).select_by_index(report_id_index)
+def generate_report(driver, report_name, bo_sample_index, report_id_index, account_rep, fecha_inicio=None, fecha_fin=None):
+    """Genera un reporte aplicando el filtro de fechas, índices de sample y account rep, y extrae los datos."""
+    rep_label = ACCOUNT_REP_NAMES.get(account_rep, "UNKNOWN")
+    print(f"Generando reporte: {report_name} | Sample index: {bo_sample_index} | Account rep: {account_rep} ({rep_label})")
 
-    # 2) Formatear fechas a string YYYY-MM-DD (o el formato que tu web espere)
-    fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d') if isinstance(fecha_inicio, datetime) else fecha_inicio
-    fecha_fin_str    = fecha_fin.strftime('%Y-%m-%d')    if isinstance(fecha_fin,    datetime) else fecha_fin
-
-    # 3) Rellenar los inputs de fecha y disparar el cambio de foco
-    inicio_input = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, 'dt_search_start')))
-    fin_input    = driver.find_element(By.NAME, 'dt_search_end')
-
-    inicio_input.clear()
-    inicio_input.send_keys(fecha_inicio_str + Keys.TAB)
-    print(f"  Fecha inicio set a: {inicio_input.get_attribute('value')}")
-
-    fin_input.clear()
-    fin_input.send_keys(fecha_fin_str + Keys.TAB)
-    print(f"  Fecha fin    set a: {fin_input.get_attribute('value')}")
-
-    # 4) Seleccionar el sample y generar el reporte
-    Select(driver.find_element(By.ID, 'bo_sample')).select_by_index(bo_sample_index)
-    driver.find_element(By.NAME, 'generateReport_1').click()
-
-    # 5) Esperar a que la tabla esté lista y extraer
-    WebDriverWait(driver, 50).until(EC.presence_of_element_located((By.ID, "tblSalesMasterSKU")))
-    data = extract_table_data(driver, fecha_inicio_str, fecha_fin_str, report_name)
-    print(f"[{report_name}] Filas extraídas: {len(data)}")
-    return {"reporte": report_name, "datos": data}
-
-def scrape_data(driver):
-    """Realiza el scraping de múltiples reportes con rango de fechas"""
     try:
-        login(driver)
+        # Seleccionar el ID de reporte si corresponde
+        if report_id_index is not None:
+            Select(driver.find_element(By.ID, 'reportID1')).select_by_index(report_id_index)
 
-        today = datetime.today().date()
-        start_date = (today - timedelta(days=45))  # Fecha inicial fija: 2024-01-01
-        end_date = start_date  # El rango será de un solo día
+        # Formatear fechas a string YYYY-MM-DD
+        fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d') if fecha_inicio else ""
+        fecha_fin_str = fecha_fin.strftime('%Y-%m-%d') if fecha_fin else ""
 
-        driver.get(get_url_data_sales())
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username"))).send_keys(get_user_login())
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password"))).send_keys(get_password_login())
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "Login"))).click()
-        driver.get(get_url_data_sales())
+        # Rellenar los inputs de fecha
+        inicio_input = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, 'dt_search_start')))
+        fin_input = driver.find_element(By.NAME, 'dt_search_end')
 
-        all_data = []
+        inicio_input.clear()
+        inicio_input.send_keys(fecha_inicio_str + Keys.TAB)
+        print(f"  Fecha inicio set a: {inicio_input.get_attribute('value')}")
 
-        while start_date <= today:
-            start_date_str = start_date.strftime('%Y-%m-%d')
-            end_date_str = end_date.strftime('%Y-%m-%d')
-            print(f"Extrayendo datos del rango de fechas: {start_date_str} a {end_date_str}")
+        fin_input.clear()
+        fin_input.send_keys(fecha_fin_str + Keys.TAB)
+        print(f"  Fecha fin    set a: {fin_input.get_attribute('value')}")
 
-            reportes = [
-                ("standing_order", 2, 45),
-                ("open_market", 3, None),
-                ("prebook", 6, None),
-            ]
+        # Seleccionar el sample y account rep, y generar el reporte
+        Select(driver.find_element(By.ID, 'bo_sample')).select_by_index(bo_sample_index)
+        Select(driver.find_element(By.ID, 'gu_sales_rep_1')).select_by_index(account_rep)
+        driver.find_element(By.NAME, 'generateReport_1').click()
 
-            day_data = []  # Datos específicos del día actual
+        # Esperar a que la tabla esté lista y extraer los datos
+        WebDriverWait(driver, 50).until(EC.presence_of_element_located((By.ID, "tblSalesMasterSKU")))
+        data = extract_table_data(driver, fecha_inicio_str, fecha_fin_str, report_name)
+        print(f"[{report_name} | Sample {bo_sample_index} | Rep {account_rep} ({rep_label})] Filas extraídas: {len(data)}")
 
-            for nombre, bo_index, rep_index in reportes:
-                # Ahora generate_report se encarga de aplicar las fechas antes de generar
-                data = generate_report(driver, nombre, bo_index, rep_index, start_date_str, end_date_str)
-                
-                # Filtrar filas ignorando las que contienen palabras clave
-                filtered_data = [
-                    row for row in data["datos"] if not ignore_text(row)
-                ]
-                data["datos"] = filtered_data
-                day_data.append(data)
-
-            # Guardar los datos del día en la base de datos
-            save(day_data)
-            print(f"Datos del día {start_date_str} guardados en la base de datos.")
-
-            # Agregar los datos del día al conjunto total
-            all_data.extend(day_data)
-
-            # Avanzar al siguiente día
-            start_date += timedelta(days=1)
-            end_date = start_date  # Mantener el rango de un día
-        
-        return all_data
-
+        # Devolver diccionario con etiqueta incluida
+        return {
+            "reporte": report_name,
+            "datos": data,
+            "sample": bo_sample_index,
+            "account_rep": account_rep,
+            "account_rep_label": rep_label
+        }
     except Exception as e:
-        print(f"Error al realizar el scraping: {e}")
-    finally:
-        driver.quit()
-        
+        print(f"Error generando el reporte {report_name} para Sample {bo_sample_index}, Rep {account_rep}: {e}")
+        return {
+            "reporte": report_name,
+            "datos": [],
+            "sample": bo_sample_index,
+            "account_rep": account_rep,
+            "account_rep_label": rep_label
+        }
+
+
 def scrape_data_day_by_day(driver):
-    """Realiza el scraping de múltiples reportes con rango de fechas día por día desde 2024-01-01 hasta hoy."""
+    """Realiza el scraping de reportes día por día, iterando sobre samples y account reps."""
     try:
         login(driver)
 
         today = datetime.today().date()
-        start_date = datetime(2025, 3, 1).date()  # Fecha inicial fija: 2024-01-01
-        end_date = start_date  # El rango será de un solo día
+        start_date = datetime(2025, 1, 1).date()
+        end_date = start_date
 
         driver.get(get_url_data_sales())
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username"))).send_keys(get_user_login())
@@ -156,44 +134,44 @@ def scrape_data_day_by_day(driver):
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "Login"))).click()
         driver.get(get_url_data_sales())
 
-        all_data = []
+        # Definir reportes con (nombre, índice de sample, índice de reportID)
+        reportes = [
+            ("standing_order", 2, 45),
+            ("open_market", 3, None),
+            ("prebook", 6, None),
+        ]
 
         while start_date <= today:
-            start_date_str = start_date.strftime('%Y-%m-%d')
-            end_date_str = end_date.strftime('%Y-%m-%d')
-            print(f"Extrayendo datos del rango de fechas: {start_date_str} a {end_date_str}")
+            print(f"Extrayendo datos del rango: {start_date} a {end_date}")
+            day_data = []
 
-            reportes = [
-                ("standing_order", 2, 45),
-                ("open_market", 3, None),
-                ("prebook", 6, None),
-            ]
+            for nombre, bo_index, report_id_index in reportes:
+                # Iterar 7 account reps por cada sample, comenzando en posición 1
+                for account_rep in range(1, 8):
+                    try:
+                        result = generate_report(
+                            driver,
+                            nombre,
+                            bo_index,
+                            report_id_index,
+                            account_rep,
+                            fecha_inicio=start_date,
+                            fecha_fin=end_date
+                        )
+                        # Filtrar filas irrelevantes
+                        filtered = [row for row in result["datos"] if not ignore_text(row)]
+                        result["datos"] = filtered
+                        print(f"Guardado reporte {nombre}, sample {bo_index}, rep {account_rep} ({result['account_rep_label']}) con {len(filtered)} filas.")
+                        day_data.append(result)
 
-            day_data = []  # Datos específicos del día actual
+                        # Guardar los datos extraídos en la base de datos
+                        save([result])
 
-            for nombre, bo_index, rep_index in reportes:
-                # Ahora generate_report se encarga de aplicar las fechas antes de generar
-                data = generate_report(driver, nombre, bo_index, rep_index, start_date_str, end_date_str)
-                
-                # Filtrar filas ignorando las que contienen palabras clave
-                filtered_data = [
-                    row for row in data["datos"] if not ignore_text(row)
-                ]
-                data["datos"] = filtered_data
-                day_data.append(data)
+                    except Exception as e:
+                        print(f"Error generando {nombre} sample {bo_index} rep {account_rep}: {e}")
 
-            # Guardar los datos del día en la base de datos
-            save(day_data)
-            print(f"Datos del día {start_date_str} guardados en la base de datos.")
-
-            # Agregar los datos del día al conjunto total
-            all_data.extend(day_data)
-
-            # Avanzar al siguiente día
             start_date += timedelta(days=1)
-            end_date = start_date  # Mantener el rango de un día
-        
-        return all_data
+            end_date = start_date
 
     except Exception as e:
         print(f"Error al realizar el scraping: {e}")
@@ -203,7 +181,6 @@ def scrape_data_day_by_day(driver):
 def sales_main():
     driver = create_driver_connection()
     datos_reporte = scrape_data_day_by_day(driver)
-    # save(datos_reporte)  # Guardar datos en la base de datos
     return datos_reporte
 
 def ignore_text(row):
