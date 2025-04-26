@@ -62,9 +62,9 @@ def delete_data_cst():
 url_sales_query = """SELECT prm_valor FROM Parametros_Sistema
 	            WHERE id_grupo = 9 AND prm_descripcion LIKE 'url_sales'"""
 
-insert_report_sales_query = """INSERT INTO rptUnosof_Reportes_Ventas_Orden_Permanente VALUES (?,?,?,?,?,?,?,?,?,?,?)"""
+insert_report_sales_query = """INSERT INTO rptUnosof_Reportes_Ventas_Orden_Permanente_Dev VALUES (?,?,?,?,?,?,?,?,?,?,?)"""
 
-delete_report_sales_query = """DELETE FROM rptUnosof_Reportes_Ventas_Orden_Permanente
+delete_report_sales_query = """DELETE FROM rptUnosof_Reportes_Ventas_Orden_Permanente_Dev
             WHERE rvent_fecha_inicio_consulta >= ?"""
 
 # Sales Master Report SKU (Reports)
