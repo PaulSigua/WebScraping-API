@@ -1,5 +1,4 @@
 from database.db_unosof import insert_data_cst, delete_data_cst
-from utils.mail import send_mail
 from datetime import date
     
 def save(data):
@@ -38,4 +37,4 @@ def save(data):
 
     except Exception as e:
         message = f"Error al guardar los datos con los clientes {e}"
-        send_mail(message)
+        print(message)

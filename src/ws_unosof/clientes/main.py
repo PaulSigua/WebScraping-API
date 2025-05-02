@@ -1,5 +1,8 @@
 from database.db_unosof import (
-    get_url_login, get_user_login, get_password_login, get_url_data_cst
+    get_url_login, 
+    get_user_login, 
+    get_password_login, 
+    get_url_data_cst
 )
 from utils.mail import send_mail
 from ws_unosof.clientes.migrate_db import save
@@ -10,6 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from bs4 import BeautifulSoup
+from database.db import log_to_db
 
 def login(driver):
     """Realiza el inicio de sesión en la plataforma."""
@@ -88,7 +92,13 @@ def scrape_data(driver):
         
 def main_cst():
     """Función principal para ejecutar el scraping y guardar los datos."""
-    driver = create_driver_connection()
-    data = scrape_data(driver)
-    save(data)
-    print('Proceso finalizado')
+    try:
+        driver = create_driver_connection()
+        data = scrape_data(driver)
+        save(data)
+        print('Proceso finalizado')
+    except HTTPException as e:
+        message = f'ERROR Web Scraping Clientes: {e}'
+        print(message)
+        send_mail(message)
+        log_to_db(2, 1, message, 'ERROR', 'main_cst()', e.status_code)

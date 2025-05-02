@@ -1,5 +1,6 @@
 import os
 import time
+from fastapi import HTTPException
 from services.driver_service import create_driver_connection_prefs
 from database.db import log_to_db
 from database.db_freshportal import get_url_login, get_user_login, get_password_login, get_url_data_subastas
@@ -125,6 +126,12 @@ def get_file():
         driver.quit()
         
 def main_subastas():
-    get_file()
-    save()
-    print('Proceso finalizado')
+    try:
+        get_file()
+        save()
+        print('Proceso finalizado')
+    except HTTPException as e:
+        message = f'ERROR Web Scraping {e}'
+        print(message)
+        send_mail(message)
+        log_to_db(1, 1, 'ERROR', message, 'main_subastas()', e.status_code)

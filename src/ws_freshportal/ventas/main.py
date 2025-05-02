@@ -1,4 +1,4 @@
-import time
+from fastapi import HTTPException
 from services.driver_service import create_driver_connection
 from database.db import log_to_db
 from database.db_freshportal import get_url_login, get_url_data_ventas, get_user_login, get_password_login
@@ -107,6 +107,12 @@ def scraple_data():
         print(f'ERROR: {e}')
         
 def main_ventas():
-    data = scraple_data()
-    save(data)
-    print('Proceso finalizado')
+    try:
+        data = scraple_data()
+        save(data)
+        print('Proceso finalizado')
+    except HTTPException as e:
+        message = f'ERROR Web Scraping Fresh-portal Ventas {e}'
+        print(message)
+        send_mail(message)
+        log_to_db(1, 2, 'ERROR', message, 'main_ventas()', e.status_code)

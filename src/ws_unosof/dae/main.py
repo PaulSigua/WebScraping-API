@@ -95,6 +95,12 @@ def scrape_data(driver):
         driver.quit()
         
 def dae_main():
-    driver = create_driver_connection()
-    data = scrape_data(driver)
-    save(data)
+    try:
+        driver = create_driver_connection()
+        data = scrape_data(driver)
+        save(data)
+    except HTTPException as e:
+        message = f'ERROR Web Scraping DAE'
+        print(message)
+        send_mail(message)
+        log_to_db(2, 2, 'ERROR', message, 'dae_main()', e.status_code)

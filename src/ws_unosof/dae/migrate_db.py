@@ -41,7 +41,7 @@ def save(data):
                 continue
 
             # Insertar los datos en la base de datos
-            # insert_data_dae(row)
+            insert_data_dae(row)
             print(f'Insertando datos: {row}')
             
     except Exception as e:
